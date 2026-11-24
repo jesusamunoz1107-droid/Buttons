@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bassano · Llamador de mesas v3</title>
+<style>
+  :root{--bg:#f5f1ea;--card:#fff;--ink:#1f1b16;--mut:#7a7166;--line:#e6dfd3;--red:#d9402b;--green:#2f8f5b;--wood:#d8c3a0;--floor:#efe7da}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 18px;background:#1f1b16;color:#fff}
+  header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.02em}
+  header h1 span{color:#f0b25a}
+  .pill{font-size:12px;padding:4px 10px;border-radius:99px;background:#3a332b;color:#ddd}
+  .pill.ok{background:#1f6b45;color:#fff}
+  .spacer{flex:1}
+  button{font:600 14px system-ui;border:0;border-radius:10px;padding:9px 14px;cursor:pointer}
+  .btn-main{background:#f0b25a;color:#1f1b16}
+  .btn-ghost{background:#3a332b;color:#fff}
+  .btn-ok{background:var(--green);color:#fff;padding:7px 12px}
+  select{font:14px system-ui;padding:7px;border-radius:8px;border:0}
+  main{display:grid;grid-template-columns:1fr 340px;gap:16px;padding:16px;max-width:1400px;margin:0 auto}
+  @media (max-width:900px){main{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .card h2{font-size:15px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)}
+  svg{width:100%;height:auto;display:block}
+  .mesa rect,.mesa circle.tabla{fill:var(--wood);stroke:#a88c62;stroke-width:2;transition:fill .2s}
+  .mesa text{font:700 18px system-ui;fill:#4b3a22;pointer-events:none}
+  .mesa .silla{fill:#bfa57c}
+  .mesa.llamando rect,.mesa.llamando circle.tabla{fill:var(--red);stroke:#8e2414}
+  .mesa.llamando text{fill:#fff}
+  .mesa.llamando text.tiempo{fill:#8e2414}
+  .mesa.llamando{animation:latido 1s ease-in-out infinite;cursor:pointer}
+  @keyframes latido{50%{opacity:.55}}
+  .tiempo{font:700 13px system-ui;fill:#8e2414}
+  .zona{fill:#e4d9c6;stroke:#c9b99c}
+  .zona-txt{font:600 14px system-ui;fill:#7a6a50;letter-spacing:.08em}
+  .lista{display:flex;flex-direction:column;gap:8px}
+  .item{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:#fdf0ee;border:1px solid #f3c9c1}
+  .item .num{font:800 22px system-ui;color:var(--red);min-width:42px;text-align:center}
+  .item .info{flex:1;font-size:13px;color:var(--mut)}
+  .item .info b{color:var(--ink);font-size:15px}
+  .vacio{color:var(--mut);text-align:center;padding:24px 8px}
+  .consola{background:#14110d;color:#b9f6ca;font:12px ui-monospace,Menlo,Consolas,monospace;border-radius:10px;padding:10px;height:180px;overflow:auto;white-space:pre-wrap;margin-top:8px}
+  .nota{font-size:12px;color:var(--mut);margin-top:8px}
+  .leyenda{display:flex;gap:14px;font-size:12px;color:var(--mut);margin-top:8px}
+  .leyenda i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px}
+  .mesa.t2 rect,.mesa.t2 circle.tabla{fill:#2563eb;stroke:#1e3a8a}
+  .mesa.t3 rect,.mesa.t3 circle.tabla{fill:#d97706;stroke:#78350f}
+  .mesa.t2 text.tiempo{fill:#1e3a8a} .mesa.t3 text.tiempo{fill:#78350f}
+  .pila{font:700 12px system-ui}
+  .badge{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;color:#fff;margin-left:4px}
+  .item.t2{background:#eef3fe;border-color:#bfd0f7} .item.t2 .num{color:#2563eb}
+  .item.t3{background:#fdf5e6;border-color:#f3d9a6} .item.t3 .num{color:#d97706}
+  table.ap{width:100%;border-collapse:collapse;font-size:13px}
+  table.ap th,table.ap td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+  table.ap th{color:var(--mut);font-size:11px;text-transform:uppercase}
+  .nuevo{background:#fff7e6;border:1px solid #f3d9a6;border-radius:10px;padding:10px;margin-bottom:8px;font-size:14px}
+  .nuevo select,.ajuste input,table.ap select{font:14px system-ui;padding:5px;border-radius:6px;border:1px solid var(--line)}
+  .ajuste{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:14px}
+  .ajuste input{flex:1}
+  .btn-sec{background:#efe7da;color:#1f1b16;padding:7px 12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>BASSANO <span>· Llamador de mesas</span></h1>
+  <span class="pill" id="estado">Sin conectar</span>
+  <div class="spacer"></div>
+  <select id="simMesa" title="Simular una mesa"></select>
+  <select id="simTipo"><option value="1">1 toque</option><option value="2">2 toques</option><option value="3">3 toques</option></select>
+  <button class="btn-ghost" id="btnSim">Simular llamada</button>
+  <button class="btn-main" id="btnConectar">Conectar ESP32 jefe</button>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Mapa del comedor</h2>
+    <svg id="mapa" viewBox="0 0 900 560" xmlns="http://www.w3.org/2000/svg">
+      <rect x="10" y="10" width="880" height="540" rx="14" fill="var(--floor)" stroke="#cdbfa8" stroke-width="3"/>
+      <!-- ZONAS -->
+      <rect class="zona" x="10" y="10" width="250" height="140" rx="12"/>
+      <text class="zona-txt" x="135" y="86" text-anchor="middle">COCINA · HORNO</text>
+      <rect class="zona" x="280" y="10" width="220" height="70" rx="10"/>
+      <text class="zona-txt" x="390" y="51" text-anchor="middle">BARRA · CAJA</text>
+      <rect class="zona" x="760" y="10" width="130" height="90" rx="10"/>
+      <text class="zona-txt" x="825" y="61" text-anchor="middle">BAÑOS</text>
+      <rect class="zona" x="620" y="395" width="270" height="155" rx="12" fill="#dfe9d6" stroke="#b5c9a3"/>
+      <text class="zona-txt" x="636" y="388" fill="#5d7a48">TERRAZA</text>
+      <rect x="380" y="535" width="140" height="15" fill="#f0b25a"/>
+      <text class="zona-txt" x="450" y="527" text-anchor="middle">ENTRADA</text>
+      <g id="mesas"></g>
+    </svg>
+    <div class="leyenda" id="leyenda"></div><p class="nota">Toca una mesa de color para marcarla como atendida. Abajo de cada mesa sale su pila (o el tiempo de espera si está llamando).</p>
+  </section>
+
+  <aside>
+    <section class="card">
+      <h2>Mesas llamando</h2>
+      <div class="lista" id="lista"></div>
+    </section>
+    <section class="card" style="margin-top:16px">
+      <h2>Aparatos de mesa</h2>
+      <div id="nuevos"></div>
+      <table class="ap"><thead><tr><th>Mesa</th><th>ID</th><th>Pila</th><th>Visto</th></tr></thead><tbody id="aparatos"></tbody></table>
+      <p class="nota">Cada aparato tiene un ID único. Cuando uno nuevo se prende o llama, aquí te pregunta qué mesa es. Puedes cambiarlo cuando quieras.</p>
+    </section>
+    <section class="card" style="margin-top:16px">
+      <h2>Ajustes: qué significa cada toque</h2>
+      <div class="ajuste">1 toque <input id="et1"></div>
+      <div class="ajuste">2 toques <input id="et2"></div>
+      <div class="ajuste">3 toques <input id="et3"></div>
+      <button class="btn-sec" id="btnGuardarEt">Guardar</button>
+      <button class="btn-sec" id="btnOlvidar">Olvidar aparatos</button>
+    </section>
+    <section class="card" style="margin-top:16px">
+      <h2>Consola</h2>
+      <div class="consola" id="consola"></div>
+      <p class="nota">Funciona en <b>Chrome</b> o <b>Edge</b> de computadora. Abre este archivo, dale "Conectar ESP32 jefe" y elige el puerto COM del ESP32.</p>
+    </section>
+  </aside>
+</main>
+
+<script>
+// ===== MAPA: POSICION DE CADA MESA (INVENTADO, CAMBIALO A TU GUSTO) =====
+// forma: "c" = redonda, "r" = rectangular
+var MESAS = [
+  {n:1, x:330, y:170, forma:"r"}, {n:2, x:470, y:170, forma:"r"}, {n:3, x:610, y:170, forma:"r"},
+  {n:4, x:330, y:300, forma:"c"}, {n:5, x:470, y:300, forma:"c"}, {n:6, x:610, y:300, forma:"c"},
+  {n:7, x:90,  y:260, forma:"r"}, {n:8, x:90,  y:400, forma:"r"},
+  {n:9, x:705, y:468, forma:"c"}, {n:10,x:825, y:468, forma:"c"}
+];
+
+var pendientes = {};      // {numeroMesa: {desde, tipo, veces, id}}
+var ultimoAviso = {};     // PARA IGNORAR REPETIDOS (LA MESA MANDA 3 VECES)
+var aparatos = {};        // {id: {mv, visto}}
+var porAsignar = {};      // {id: llamadaPendiente o null}
+var puerto = null, escritor = null;
+var NS = "http://www.w3.org/2000/svg";
+var COLORES = {1:"#d9402b", 2:"#2563eb", 3:"#d97706"};
+
+// ===== CONFIGURACION GUARDADA EN ESTA COMPU =====
+var cfg = {asig:{}, etiquetas:{1:"Mesero", 2:"La cuenta", 3:"Ayuda"}};
+try { var g = JSON.parse(localStorage.getItem("bassano_cfg")); if (g) cfg = g; } catch(e) {}
+function guardarCfg(){ try { localStorage.setItem("bassano_cfg", JSON.stringify(cfg)); } catch(e) {} }
+function mesaDe(id){ return cfg.asig[id] || null; }
+function idDe(mesa){ for (var id in cfg.asig) if (cfg.asig[id] == mesa) return id; return null; }
+
+// ===== PILA: MILIVOLTS -> PORCENTAJE (APROXIMADO PARA LIPO) =====
+var CURVA = [[4200,100],[4100,90],[4000,80],[3900,65],[3800,50],[3750,40],[3700,30],[3600,15],[3500,5],[3300,0]];
+function porcentaje(mv){
+  if (mv >= CURVA[0][0]) return 100;
+  for (var k = 1; k < CURVA.length; k++) {
+    if (mv >= CURVA[k][0]) { var a = CURVA[k-1], b = CURVA[k]; return Math.round(b[1] + (mv-b[0])*(a[1]-b[1])/(a[0]-b[0])); }
+  }
+  return 0;
+}
+function colorPila(p){ return p >= 50 ? "#2f8f5b" : (p >= 20 ? "#b7791f" : "#d9402b"); }
+var SIN_SENAL = 40*60*1000;   // SI NO SE REPORTA EN 40 MINUTOS = SIN SEÑAL (LAS MESAS AVISAN CADA 30)
+
+// ===== DIBUJAR LAS MESAS =====
+var gMesas = document.getElementById("mesas");
+MESAS.forEach(function(m){
+  var g = document.createElementNS(NS,"g");
+  g.setAttribute("class","mesa"); g.setAttribute("id","mesa"+m.n);
+  [[-1,0],[1,0],[0,-1],[0,1]].forEach(function(d){
+    var s = document.createElementNS(NS,"circle");
+    s.setAttribute("class","silla"); s.setAttribute("r",11);
+    s.setAttribute("cx", m.x + d[0]*48); s.setAttribute("cy", m.y + d[1]*40);
+    g.appendChild(s);
+  });
+  var t;
+  if (m.forma === "c") { t = document.createElementNS(NS,"circle"); t.setAttribute("class","tabla"); t.setAttribute("cx",m.x); t.setAttribute("cy",m.y); t.setAttribute("r",34); }
+  else { t = document.createElementNS(NS,"rect"); t.setAttribute("x",m.x-40); t.setAttribute("y",m.y-28); t.setAttribute("width",80); t.setAttribute("height",56); t.setAttribute("rx",8); }
+  g.appendChild(t);
+  var tx = document.createElementNS(NS,"text"); tx.setAttribute("x",m.x); tx.setAttribute("y",m.y+6); tx.setAttribute("text-anchor","middle"); tx.textContent = m.n;
+  g.appendChild(tx);
+  var tiempo = document.createElementNS(NS,"text"); tiempo.setAttribute("class","tiempo"); tiempo.setAttribute("x",m.x); tiempo.setAttribute("y",m.y+72); tiempo.setAttribute("text-anchor","middle"); tiempo.setAttribute("id","t"+m.n);
+  g.appendChild(tiempo);
+  var pila = document.createElementNS(NS,"text"); pila.setAttribute("class","pila"); pila.setAttribute("x",m.x); pila.setAttribute("y",m.y+72); pila.setAttribute("text-anchor","middle"); pila.setAttribute("id","p"+m.n);
+  g.appendChild(pila);
+  g.addEventListener("click", function(){ if (pendientes[m.n]) atender(m.n); });
+  gMesas.appendChild(g);
+  var op = document.createElement("option"); op.value = m.n; op.textContent = "Mesa " + m.n;
+  document.getElementById("simMesa").appendChild(op);
+});
+
+// ===== CONSOLA =====
+function log(texto){
+  var c = document.getElementById("consola");
+  c.textContent += "[" + new Date().toLocaleTimeString() + "] " + texto + "\n";
+  c.scrollTop = c.scrollHeight;
+}
+
+// ===== SONIDO (DING-DONG; MAS TONOS SEGUN EL TIPO) =====
+var audio = null;
+function sonar(tipo){
+  try {
+    if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+    var notas = tipo == 2 ? [660,880,660] : (tipo == 3 ? [988,988,988,988] : [880,660]);
+    notas.forEach(function(f, i){
+      var o = audio.createOscillator(), g = audio.createGain();
+      o.frequency.value = f; o.connect(g); g.connect(audio.destination);
+      var t0 = audio.currentTime + i*0.22;
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.4, t0+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0+0.2);
+      o.start(t0); o.stop(t0+0.22);
+    });
+  } catch(e) {}
+}
+
+// ===== REGISTRAR QUE UN APARATO ESTA VIVO Y SU PILA =====
+function verAparato(id, mv){
+  aparatos[id] = {mv: mv, visto: Date.now()};
+  if (!mesaDe(id) && !(id in porAsignar)) { porAsignar[id] = null; log("Aparato nuevo " + id + ": asígnale una mesa"); }
+  dibujar();
+}
+
+// ===== LLEGO UNA LLAMADA =====
+function llamadaDeAparato(id, tipo, mv){
+  var clave = id + "-" + tipo, ahora = Date.now();
+  if (ultimoAviso[clave] && ahora - ultimoAviso[clave] < 2000) return;   // REPETIDO
+  ultimoAviso[clave] = ahora;
+  verAparato(id, mv);
+  var mesa = mesaDe(id);
+  if (!mesa) { porAsignar[id] = {tipo: tipo}; log("Aparato " + id + " llamó pero aún no tiene mesa"); sonar(tipo); dibujar(); return; }
+  llamada(mesa, tipo, id);
+}
+
+function llamada(mesa, tipo, id){
+  var et = cfg.etiquetas[tipo] || ("Tipo " + tipo);
+  if (pendientes[mesa]) { pendientes[mesa].veces++; pendientes[mesa].tipo = tipo; log("Mesa " + mesa + " volvió a llamar: " + et); }
+  else { pendientes[mesa] = {desde: Date.now(), tipo: tipo, veces: 1, id: id}; log("Mesa " + mesa + ": " + et); }
+  sonar(tipo);
+  dibujar();
+}
+
+// ===== ATENDER =====
+function atender(mesa){
+  var p = pendientes[mesa]; delete pendientes[mesa];
+  log("Mesa " + mesa + " atendida");
+  var id = (p && p.id) || idDe(mesa);
+  if (id && id.indexOf("SIM") !== 0) enviar("ATENDIDA," + id);
+  dibujar();
+}
+
+// ===== ASIGNAR UN APARATO A UNA MESA =====
+function asignar(id, mesa){
+  for (var otro in cfg.asig) if (cfg.asig[otro] == mesa && otro !== id) delete cfg.asig[otro];   // UNA MESA = UN APARATO
+  cfg.asig[id] = Number(mesa); guardarCfg();
+  log("Aparato " + id + " ahora es la mesa " + mesa);
+  var pend = porAsignar[id]; delete porAsignar[id];
+  if (pend) llamada(Number(mesa), pend.tipo, id);
+  dibujar();
+}
+
+// ===== REDIBUJAR TODO =====
+function dibujar(){
+  var ahora = Date.now();
+  MESAS.forEach(function(m){
+    var el = document.getElementById("mesa"+m.n), p = pendientes[m.n];
+    el.classList.toggle("llamando", !!p);
+    el.classList.toggle("t2", !!p && p.tipo == 2);
+    el.classList.toggle("t3", !!p && p.tipo == 3);
+    var pt = document.getElementById("p"+m.n), id = idDe(m.n);
+    // ABAJO DE LA MESA: TIEMPO SI ESTA LLAMANDO, SI NO, SU PILA
+    if (p) pt.textContent = "";
+    else if (id && aparatos[id]) {
+      if (ahora - aparatos[id].visto > SIN_SENAL) { pt.textContent = "sin señal"; pt.style.fill = "#7a7166"; }
+      else { var pc = porcentaje(aparatos[id].mv); pt.textContent = "🔋" + pc + "%"; pt.style.fill = colorPila(pc); }
+    } else if (id) { pt.textContent = "esperando…"; pt.style.fill = "#7a7166"; }
+    else pt.textContent = "";
+  });
+
+  // LEYENDA
+  document.getElementById("leyenda").innerHTML = '<span><i style="background:var(--wood)"></i>Libre</span>' +
+    [1,2,3].map(function(t){ return '<span><i style="background:' + COLORES[t] + '"></i>' + t + ' toque' + (t>1?'s':'') + ': ' + cfg.etiquetas[t] + '</span>'; }).join("");
+
+  // LISTA DE PENDIENTES
+  var lista = document.getElementById("lista");
+  var nums = Object.keys(pendientes).sort(function(a,b){ return pendientes[a].desde - pendientes[b].desde; });
+  if (nums.length === 0) lista.innerHTML = '<div class="vacio">Ninguna mesa está llamando 👌</div>';
+  else {
+    lista.innerHTML = "";
+    nums.forEach(function(n){
+      var p = pendientes[n];
+      var div = document.createElement("div"); div.className = "item t" + p.tipo;
+      div.innerHTML = '<div class="num">' + n + '</div><div class="info"><b>Mesa ' + n + '</b><span class="badge" style="background:' + COLORES[p.tipo] + '">' + (cfg.etiquetas[p.tipo]||"") + '</span><br><span data-desde="' + p.desde + '"></span>' + (p.veces > 1 ? ' · llamó ' + p.veces + ' veces' : '') + '</div>';
+      var b = document.createElement("button"); b.className = "btn-ok"; b.textContent = "Atendida";
+      b.onclick = function(){ atender(Number(n)); };
+      div.appendChild(b); lista.appendChild(div);
+    });
+  }
+
+  // APARATOS NUEVOS (POR ASIGNAR)
+  var nv = document.getElementById("nuevos"); nv.innerHTML = "";
+  Object.keys(porAsignar).forEach(function(id){
+    var d = document.createElement("div"); d.className = "nuevo";
+    var opts = MESAS.map(function(m){ return '<option value="' + m.n + '">Mesa ' + m.n + (idDe(m.n) ? ' (ocupada)' : '') + '</option>'; }).join("");
+    d.innerHTML = '<b>Aparato nuevo ' + id + '</b>' + (porAsignar[id] ? ' <span class="badge" style="background:#d9402b">está llamando</span>' : '') + '<br>¿Qué mesa es? <select>' + opts + '</select> ';
+    var b = document.createElement("button"); b.className = "btn-ok"; b.textContent = "Guardar";
+    b.onclick = function(){ asignar(id, d.querySelector("select").value); };
+    d.appendChild(b); nv.appendChild(d);
+  });
+
+  // TABLA DE APARATOS
+  var tb = document.getElementById("aparatos"); tb.innerHTML = "";
+  Object.keys(cfg.asig).sort(function(a,b){ return cfg.asig[a]-cfg.asig[b]; }).forEach(function(id){
+    var a = aparatos[id], tr = document.createElement("tr");
+    var pila = a ? ('<b style="color:' + colorPila(porcentaje(a.mv)) + '">' + porcentaje(a.mv) + '%</b> (' + (a.mv/1000).toFixed(2) + ' V)') : '—';
+    var visto = a ? '<span data-visto="' + a.visto + '"></span>' : 'aún no';
+    var sel = '<select>' + MESAS.map(function(m){ return '<option value="' + m.n + '"' + (m.n == cfg.asig[id] ? ' selected' : '') + '>' + m.n + '</option>'; }).join("") + '</select>';
+    tr.innerHTML = '<td>' + sel + '</td><td>' + id + '</td><td>' + pila + '</td><td>' + visto + '</td>';
+    tr.querySelector("select").onchange = function(){ asignar(id, this.value); };
+    tb.appendChild(tr);
+  });
+  if (!tb.children.length) tb.innerHTML = '<tr><td colspan="4" style="color:#7a7166">Todavía no hay aparatos asignados</td></tr>';
+  actualizarTiempos();
+}
+
+function formatear(ms){ var s = Math.floor(ms/1000); var m = Math.floor(s/60); s = s%60; return (m>0 ? m + " min " : "") + s + " s"; }
+function actualizarTiempos(){
+  var ahora = Date.now();
+  document.querySelectorAll("[data-desde]").forEach(function(el){ el.textContent = "Esperando " + formatear(ahora - Number(el.dataset.desde)); });
+  document.querySelectorAll("[data-visto]").forEach(function(el){ var d = ahora - Number(el.dataset.visto); el.textContent = d > SIN_SENAL ? "sin señal" : "hace " + formatear(d); });
+  MESAS.forEach(function(m){ var t = document.getElementById("t"+m.n); t.textContent = pendientes[m.n] ? formatear(ahora - pendientes[m.n].desde) : ""; });
+}
+setInterval(actualizarTiempos, 1000);
+setInterval(dibujar, 30000);   // REVISA "SIN SEÑAL" CADA 30 SEGUNDOS
+
+// ===== CONEXION CON EL ESP32 JEFE (WEB SERIAL) =====
+async function conectar(){
+  if (!("serial" in navigator)) { alertaTexto("Este navegador no puede conectarse al ESP32. Usa Chrome o Edge en computadora."); return; }
+  try {
+    puerto = await navigator.serial.requestPort();
+    await puerto.open({ baudRate: 115200 });
+    escritor = puerto.writable.getWriter();
+    var est = document.getElementById("estado"); est.textContent = "Conectado"; est.classList.add("ok");
+    document.getElementById("btnConectar").textContent = "Conectado ✓";
+    log("Conectado al ESP32 jefe");
+    sonar();
+    leer();
+  } catch(e) { log("No se pudo conectar: " + e.message); }
+}
+
+async function leer(){
+  var decoder = new TextDecoder(), buffer = "";
+  var lector = puerto.readable.getReader();
+  try {
+    while (true) {
+      var r = await lector.read();
+      if (r.done) break;
+      buffer += decoder.decode(r.value);
+      var lineas = buffer.split("\n"); buffer = lineas.pop();
+      lineas.forEach(function(l){
+        l = l.trim(); if (!l) return;
+        log("ESP32 → " + l);
+        var m = l.match(/^LLAMA,([0-9A-F]+),(\d),(\d+)/);
+        if (m) { llamadaDeAparato(m[1], Number(m[2]), Number(m[3])); return; }
+        var b = l.match(/^BAT,([0-9A-F]+),(\d+)/);
+        if (b) verAparato(b[1], Number(b[2]));
+      });
+    }
+  } catch(e) { log("Se desconectó el ESP32: " + e.message); }
+  var est = document.getElementById("estado"); est.textContent = "Sin conectar"; est.classList.remove("ok");
+  document.getElementById("btnConectar").textContent = "Conectar ESP32 jefe";
+}
+
+async function enviar(texto){
+  if (!escritor) { log("(sin ESP32) " + texto); return; }
+  try { await escritor.write(new TextEncoder().encode(texto + "\n")); log("Laptop → " + texto); }
+  catch(e) { log("No se pudo enviar: " + e.message); }
+}
+
+function alertaTexto(t){ log("⚠ " + t); }
+
+document.getElementById("btnConectar").onclick = conectar;
+document.getElementById("btnSim").onclick = function(){
+  var mesa = Number(document.getElementById("simMesa").value), tipo = Number(document.getElementById("simTipo").value);
+  var id = "SIM" + (mesa < 10 ? "0" : "") + mesa;
+  if (!cfg.asig[id]) { cfg.asig[id] = mesa; }
+  aparatos[id] = {mv: 3700 + Math.floor(Math.random()*500), visto: Date.now()};
+  ultimoAviso = {};
+  llamada(mesa, tipo, id);
+};
+[1,2,3].forEach(function(t){ document.getElementById("et"+t).value = cfg.etiquetas[t]; });
+document.getElementById("btnGuardarEt").onclick = function(){
+  [1,2,3].forEach(function(t){ cfg.etiquetas[t] = document.getElementById("et"+t).value || cfg.etiquetas[t]; });
+  guardarCfg(); log("Ajustes guardados"); dibujar();
+};
+document.getElementById("btnOlvidar").onclick = function(){
+  cfg.asig = {}; guardarCfg(); porAsignar = {}; Object.keys(aparatos).forEach(function(id){ porAsignar[id] = null; });
+  log("Se olvidaron las asignaciones de aparatos"); dibujar();
+};
+dibujar();
+log("App lista. Conecta el ESP32 jefe o usa 'Simular llamada' para probar.");
+</script>
+</body>
+</html>
